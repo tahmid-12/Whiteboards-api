@@ -1,38 +1,62 @@
 const Drawing = require('../models/drawingModel');
 
-// Create a new drawing
 exports.createDrawing = async (req, res) => {
     try {
-        // Create a new instance of the drawing model with request body data
-        const drawing = new Drawing({
-            type: req.body.type,
-            startPoint: req.body.startPoint,
-            endPoint: req.body.endPoint,
-            center: req.body.center,
-            radius: req.body.radius,
-            shapeType: req.body.shapeType,
-            borderColor: req.body.borderColor,
-            borderThickness: req.body.borderThickness,
-            fillColor: req.body.fillColor,
-            position: req.body.position,
-            content: req.body.content,
-            fontSize: req.body.fontSize,
-            color: req.body.color,
-            fontStyle: req.body.fontStyle,
-            thickness: req.body.thickness
-        });
+        const { type, startPoint, endPoint, center, radius, shapeType, borderColor, borderThickness, fillColor, position, content, fontSize, color, fontStyle, thickness } = req.body;
 
-        // Save the drawing to MongoDB
+        let newDrawing = {
+            type,
+            borderColor,
+            borderThickness,
+            fillColor,
+        };
+
+        switch (type) {
+            case 'line':
+                if (!startPoint || !endPoint) {
+                    return res.status(400).json({ message: 'Line requires startPoint and endPoint.' });
+                }
+                newDrawing.startPoint = startPoint;
+                newDrawing.endPoint = endPoint;
+                break;
+            case 'circle':
+                if (!center || !radius) {
+                    return res.status(400).json({ message: 'Circle requires center and radius.' });
+                }
+                newDrawing.center = center;
+                newDrawing.radius = radius;
+                break;
+            case 'rectangle':
+                if (!startPoint || !endPoint) {
+                    return res.status(400).json({ message: 'Rectangle requires startPoint and endPoint.' });
+                }
+                newDrawing.startPoint = startPoint;
+                newDrawing.endPoint = endPoint;
+                newDrawing.shapeType = shapeType; 
+                break;
+            case 'text':
+                if (!content || !position || !fontSize || !color) {
+                    return res.status(400).json({ message: 'Text requires content, position, fontSize, and color.' });
+                }
+                newDrawing.content = content;
+                newDrawing.position = position;
+                newDrawing.fontSize = fontSize;
+                newDrawing.color = color;
+                newDrawing.fontStyle = fontStyle; 
+                break;
+            default:
+                return res.status(400).json({ message: 'Invalid drawing type' });
+        }
+
+        const drawing = new Drawing(newDrawing);
         await drawing.save();
 
-        // Send the saved drawing as a response
         res.status(201).json(drawing);
     } catch (error) {
         res.status(400).json({ message: 'Error creating drawing', error });
     }
 };
 
-// Get all drawings
 exports.getAllDrawings = async (req, res) => {
     try {
         const drawings = await Drawing.find();
@@ -42,7 +66,6 @@ exports.getAllDrawings = async (req, res) => {
     }
 };
 
-// Get a specific drawing by ID
 exports.getDrawingById = async (req, res) => {
     try {
         const drawing = await Drawing.findById(req.params.id);
@@ -53,10 +76,24 @@ exports.getDrawingById = async (req, res) => {
     }
 };
 
-// Update a drawing
 exports.updateDrawing = async (req, res) => {
     try {
-        const drawing = await Drawing.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const { type, ...updateData } = req.body;
+
+        if (type === 'circle' && (!updateData.center || !updateData.radius)) {
+            return res.status(400).json({ message: 'Circle requires center and radius.' });
+        }
+        if (type === 'line' && (!updateData.startPoint || !updateData.endPoint)) {
+            return res.status(400).json({ message: 'Line requires startPoint and endPoint.' });
+        }
+        if (type === 'rectangle' && (!updateData.startPoint || !updateData.endPoint)) {
+            return res.status(400).json({ message: 'Rectangle requires startPoint and endPoint.' });
+        }
+        if (type === 'text' && (!updateData.content || !updateData.position || !updateData.fontSize || !updateData.color)) {
+            return res.status(400).json({ message: 'Text requires content, position, fontSize, and color.' });
+        }
+
+        const drawing = await Drawing.findByIdAndUpdate(req.params.id, updateData, { new: true });
         if (!drawing) return res.status(404).json({ message: 'Drawing not found' });
         res.json(drawing);
     } catch (error) {
@@ -64,7 +101,6 @@ exports.updateDrawing = async (req, res) => {
     }
 };
 
-// Delete a drawing
 exports.deleteDrawing = async (req, res) => {
     try {
         const drawing = await Drawing.findByIdAndDelete(req.params.id);
